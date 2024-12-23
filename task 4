@@ -1,0 +1,233 @@
+import javax.swing.*;
+import java.util.*;
+import java.io.*;
+import java.text.*;
+import java.sql.*;
+
+public class LibrarySystem {
+
+    static class LibraryItem {
+        String title;
+        String author;
+        String category;
+        boolean isCheckedOut;
+        Date dueDate;
+
+        public LibraryItem(String title, String author, String category) {
+            this.title = title;
+            this.author = author;
+            this.category = category;
+            this.isCheckedOut = false;
+            this.dueDate = null;
+        }
+
+        public void checkout() {
+            this.isCheckedOut = true;
+            this.dueDate = new Date(System.currentTimeMillis() + 14L * 24 * 60 * 60 * 1000);
+        }
+
+        public void returnItem() {
+            this.isCheckedOut = false;
+            this.dueDate = null;
+        }
+
+        public double calculateFine() {
+            if (!isCheckedOut) return 0.0;
+            long diffInMillies = System.currentTimeMillis() - dueDate.getTime();
+            long daysLate = diffInMillies / (1000 * 60 * 60 * 24);
+            return daysLate > 0 ? daysLate * 0.5 : 0.0;
+        }
+
+        public String getDetails() {
+            return title + " by " + author + " (" + category + ")";
+        }
+    }
+
+    static class Book extends LibraryItem {
+        public Book(String title, String author) {
+            super(title, author, "Book");
+        }
+    }
+
+    static class Magazine extends LibraryItem {
+        public Magazine(String title, String author) {
+            super(title, author, "Magazine");
+        }
+    }
+
+    static class DVD extends LibraryItem {
+        public DVD(String title, String author) {
+            super(title, author, "DVD");
+        }
+    }
+
+    static class User {
+        String username;
+        String password;
+
+        public User(String username, String password) {
+            this.username = username;
+            this.password = password;
+        }
+
+        public boolean authenticate(String password) {
+            return this.password.equals(password);
+        }
+    }
+
+    static class Librarian extends User {
+        public Librarian(String username, String password) {
+            super(username, password);
+        }
+
+        public void addItem(LibraryItem item) {
+            Library.addItem(item);
+        }
+    }
+
+    static class Patron extends User {
+        public Patron(String username, String password) {
+            super(username, password);
+        }
+
+        public void checkoutItem(LibraryItem item) {
+            item.checkout();
+        }
+
+        public void returnItem(LibraryItem item) {
+            item.returnItem();
+        }
+
+        public double calculateFine(LibraryItem item) {
+            return item.calculateFine();
+        }
+    }
+
+    static class Library {
+        private static List<LibraryItem> inventory = new ArrayList<>();
+        private static List<User> users = new ArrayList<>();
+
+        public static void addItem(LibraryItem item) {
+            inventory.add(item);
+        }
+
+        public static void listItems() {
+            for (LibraryItem item : inventory) {
+                System.out.println(item.getDetails() + (item.isCheckedOut ? " - Checked out" : ""));
+            }
+        }
+
+        public static LibraryItem searchItem(String searchTerm) {
+            for (LibraryItem item : inventory) {
+                if (item.title.toLowerCase().contains(searchTerm.toLowerCase()) || item.author.toLowerCase().contains(searchTerm.toLowerCase()) || item.category.toLowerCase().contains(searchTerm.toLowerCase())) {
+                    return item;
+                }
+            }
+            return null;
+        }
+
+        public static void addUser(User user) {
+            users.add(user);
+        }
+
+        public static User authenticateUser(String username, String password) {
+            for (User user : users) {
+                if (user.username.equals(username) && user.authenticate(password)) {
+                    return user;
+                }
+            }
+            return null;
+        }
+    }
+
+    public static void main(String[] args) {
+        Library.addItem(new Book("Java Programming", "John Doe"));
+        Library.addItem(new Magazine("Tech Monthly", "Jane Smith"));
+        Library.addItem(new DVD("Java for Beginners", "David Brown"));
+
+        Library.addUser(new Librarian("admin", "admin123"));
+        Library.addUser(new Patron("patron1", "patronpass"));
+
+        Scanner sc = new Scanner(System.in);
+        System.out.println("Welcome to the Library System!");
+        System.out.print("Enter username: ");
+        String username = sc.nextLine();
+        System.out.print("Enter password: ");
+        String password = sc.nextLine();
+
+        User user = Library.authenticateUser(username, password);
+        if (user == null) {
+            System.out.println("Invalid credentials. Exiting...");
+            return;
+        }
+
+        if (user instanceof Librarian) {
+            System.out.println("Welcome, Librarian! What would you like to do?");
+            System.out.println("1. Add a new book");
+            System.out.println("2. List all items");
+            int choice = sc.nextInt();
+            sc.nextLine();
+
+            if (choice == 1) {
+                System.out.print("Enter book title: ");
+                String title = sc.nextLine();
+                System.out.print("Enter author: ");
+                String author = sc.nextLine();
+                Library.addItem(new Book(title, author));
+                System.out.println("Book added!");
+            } else if (choice == 2) {
+                Library.listItems();
+            }
+
+        } else if (user instanceof Patron) {
+            System.out.println("Welcome, Patron! What would you like to do?");
+            System.out.println("1. Search for an item");
+            System.out.println("2. Checkout an item");
+            System.out.println("3. Return an item");
+            System.out.println("4. Calculate fine");
+            int choice = sc.nextInt();
+            sc.nextLine();
+
+            if (choice == 1) {
+                System.out.print("Enter search term: ");
+                String searchTerm = sc.nextLine();
+                LibraryItem item = Library.searchItem(searchTerm);
+                if (item != null) {
+                    System.out.println("Found: " + item.getDetails());
+                } else {
+                    System.out.println("Item not found.");
+                }
+            } else if (choice == 2) {
+                System.out.print("Enter item title to checkout: ");
+                String title = sc.nextLine();
+                LibraryItem item = Library.searchItem(title);
+                if (item != null && !item.isCheckedOut) {
+                    ((Patron) user).checkoutItem(item);
+                    System.out.println("Checked out: " + item.getDetails());
+                } else {
+                    System.out.println("Item is not available for checkout.");
+                }
+            } else if (choice == 3) {
+                System.out.print("Enter item title to return: ");
+                String title = sc.nextLine();
+                LibraryItem item = Library.searchItem(title);
+                if (item != null && item.isCheckedOut) {
+                    ((Patron) user).returnItem(item);
+                    System.out.println("Returned: " + item.getDetails());
+                } else {
+                    System.out.println("Item is not checked out.");
+                }
+            } else if (choice == 4) {
+                System.out.print("Enter item title to calculate fine: ");
+                String title = sc.nextLine();
+                LibraryItem item = Library.searchItem(title);
+                if (item != null && item.isCheckedOut) {
+                    double fine = ((Patron) user).calculateFine(item);
+                    System.out.println("Fine: $" + fine);
+                } else {
+                    System.out.println("Item is not checked out.");
+                }
+            }
+        }
+    }
+}
